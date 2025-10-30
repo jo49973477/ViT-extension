@@ -62,8 +62,8 @@ def get_b16_config_tuning(moe, gshard, mla):
     config.transformer.kr_lora_rank = 128
     
     
-    config.topk_experts = 8
-    config.n_routed_experts = 2
+    config.topk_experts = 2
+    config.n_routed_experts = 8
     config.n_shared_experts = 1
     config.moe_inter_dim = 2048
     config.score_func = "softmax"
