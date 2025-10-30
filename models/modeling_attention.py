@@ -222,4 +222,4 @@ class MultiHeadLatentAttentionViT(nn.Module):
         output = output.transpose(1, 2).contiguous().view(bsz, seqlen, -1)
         
         output = self.wo(output) # (B, S, dim)
-        return output
+        return output, scores
