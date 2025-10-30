@@ -203,8 +203,8 @@ class MultiHeadLatentAttentionViT(nn.Module):
             q_latent = torch.einsum("bhsd,hdr->bhsr", q, k_weight)
             
             # 5b. 어텐션 스코어 계산 (Latent 공간에서!)
-            # q_latent: (B, H, S, R), kv_latent_norm: (B, S, R) -> (B, H, S, S)
-            scores = torch.einsum("bhsr,bsr->bhst", q_latent, kv_latent_norm) * self.softmax_scale
+            # q_latent: (B, H, S, R), kv_latent_norm: (B, T, R) -> (B, H, S, T)
+            scores = torch.einsum("bhsr,btr->bhst", q_latent, kv_latent_norm) * self.softmax_scale
             if mask is not None:
                 scores += mask
             scores = scores.softmax(dim=-1, dtype=torch.float32).type_as(x)
