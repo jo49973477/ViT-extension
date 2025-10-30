@@ -43,12 +43,12 @@ class OriginalMLP(nn.Module):
 class SwiGLU(nn.Module):
     """ Vanilla Feed Forward Network """
     
-    def __init__(self, dim, inter_dim):
+    def __init__(self, config, dim, inter_dim):
         super(SwiGLU, self).__init__()
         self.fc1 = Linear(dim, inter_dim)
         self.fc3 = Linear(dim, inter_dim)
         self.fc2 = Linear(inter_dim, dim)
-        self.dropout = Dropout(dim)
+        self.dropout = Dropout(config.transformer["dropout_rate"])
 
         self._init_weights()
 
@@ -187,7 +187,7 @@ class MoE(nn.Module):
         self.gate = Gate(config)
         self.experts = nn.ModuleList([Expert(config.hidden_size, config.moe_inter_dim) if self.experts_start_idx <= i < self.experts_end_idx else None
                                       for i in range(self.n_routed_experts)])
-        self.shared_experts = SwiGLU(config.dim, config.n_shared_experts * config.moe_inter_dim)
+        self.shared_experts = SwiGLU(config, config.dim, config.n_shared_experts * config.moe_inter_dim)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """

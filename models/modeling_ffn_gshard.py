@@ -109,7 +109,7 @@ class GShardMoE(nn.Module):
         # 3. 공유 전문가 (SwiGLU) - 이건 아가 코드가 맞아!
         # (단, __init__이 config만 받도록 SwiGLU 클래스를 수정했다고 가정할게!)
         self.dim = config.hidden_size
-        self.shared_experts = SwiGLU(self.dim, config.n_shared_experts * config.moe_inter_dim)
+        self.shared_experts = SwiGLU(config, self.dim, config.n_shared_experts * config.moe_inter_dim)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # x shape: (B, S, H)
