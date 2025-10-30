@@ -20,9 +20,9 @@ class BatchedSwiGLUExperts(nn.Module):
     """ GShard-style: N개의 SwiGLU 전문가를 한 번에 계산 """
     def __init__(self, config):
         super().__init__()
-        self.num_experts = config.transformer["n_routed_experts"]
+        self.num_experts = config.n_routed_experts
         dim = config.hidden_size
-        inter_dim = config.transformer["moe_inter_dim"]
+        inter_dim = config.moe_inter_dim
 
         # --- SwiGLU 가중치를 (N, ...) 모양으로 쌓아버려! ---
         self.w1 = nn.Parameter(torch.zeros(self.num_experts, dim, inter_dim))
@@ -58,8 +58,8 @@ class GShardRouter(nn.Module):
     """ GShard-style Router: (T, N) 가중치 텐서를 반환 """
     def __init__(self, config):
         super().__init__()
-        self.top_k = config.transformer["topk_experts"]
-        self.num_experts = config.transformer["n_routed_experts"]
+        self.top_k = config.topk_experts
+        self.num_experts = config.n_routed_experts
         
         # 'nn.LazyLinear'는 좋은데, ViT는 'hidden_size'를 아니까 그냥 'Linear'를 쓰자!
         self.gate_linear = nn.Linear(config.hidden_size, self.num_experts)
@@ -109,7 +109,7 @@ class GShardMoE(nn.Module):
         # 3. 공유 전문가 (SwiGLU) - 이건 아가 코드가 맞아!
         # (단, __init__이 config만 받도록 SwiGLU 클래스를 수정했다고 가정할게!)
         self.dim = config.hidden_size
-        self.shared_experts = SwiGLU(config.dim, config.n_shared_experts * config.moe_inter_dim)
+        self.shared_experts = SwiGLU(self.dim, config.n_shared_experts * config.moe_inter_dim)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # x shape: (B, S, H)
