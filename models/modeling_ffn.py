@@ -187,7 +187,7 @@ class MoE(nn.Module):
         self.gate = Gate(config)
         self.experts = nn.ModuleList([Expert(config.hidden_size, config.moe_inter_dim) if self.experts_start_idx <= i < self.experts_end_idx else None
                                       for i in range(self.n_routed_experts)])
-        self.shared_experts = SwiGLU(config, config.dim, config.n_shared_experts * config.moe_inter_dim)
+        self.shared_experts = SwiGLU(config, config.hidden_size, config.n_shared_experts * config.moe_inter_dim)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
