@@ -16,7 +16,7 @@ CONFIGS = {
 for key, config in CONFIGS.items():
     model = VisionTransformer(config)
     model.eval()
-    dummy_input = torch.randn(2, 197, config.hidden_size)  # (B, S, D)
+    dummy_input = torch.randn(1, 3, 224, 224) # (B, C, H, W)
     st_time = time.time()
     output = model(dummy_input)
     end_time = time.time()
