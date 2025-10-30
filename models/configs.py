@@ -47,6 +47,39 @@ def get_b16_config():
     return config
 
 
+def get_b16_config_tuning(moe, gshard, mla):
+    """Returns the ViT-B/16 configuration."""
+    config = ml_collections.ConfigDict()
+    config.patches = ml_collections.ConfigDict({'size': (16, 16)})
+    config.hidden_size = 768
+    config.transformer = ml_collections.ConfigDict()
+    config.transformer.mlp_dim = 3072
+    config.transformer.num_heads = 12
+    config.transformer.num_layers = 12
+    config.transformer.attention_dropout_rate = 0.0
+    config.transformer.dropout_rate = 0.1
+    
+    config.transformer.kr_lora_rank = 128
+    
+    
+    config.topk_experts = 8
+    config.n_routed_experts = 2
+    config.n_shared_experts = 1
+    config.moe_inter_dim = 2048
+    config.score_func = "softmax"
+    config.route_scale = 1.0
+    
+    config.max_batch_size = 512
+    config.max_img_size = 224
+    
+    config.use_gshard_moe = gshard
+    config.use_mla_attention = mla
+    config.use_moe_in_ffn = moe
+    
+    config.classifier = 'token'
+    config.representation_size = None
+    return config
+
 def get_r50_b16_config():
     """Returns the Resnet50 + ViT-B/16 configuration."""
     config = get_b16_config()

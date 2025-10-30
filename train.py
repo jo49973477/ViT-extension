@@ -6,6 +6,7 @@ import argparse
 import os
 import random
 import numpy as np
+import time
 
 from datetime import timedelta
 
@@ -94,6 +95,7 @@ def valid(args, model, writer, test_loader, global_step):
     logger.info("  Num steps = %d", len(test_loader))
     logger.info("  Batch size = %d", args.eval_batch_size)
 
+    initial_time = time.time()
     model.eval()
     all_preds, all_label = [], []
     epoch_iterator = tqdm(test_loader,
@@ -127,14 +129,18 @@ def valid(args, model, writer, test_loader, global_step):
 
     all_preds, all_label = all_preds[0], all_label[0]
     accuracy = simple_accuracy(all_preds, all_label)
+    elapsed = time.time() - initial_time
 
     logger.info("\n")
     logger.info("Validation Results")
     logger.info("Global Steps: %d" % global_step)
     logger.info("Valid Loss: %2.5f" % eval_losses.avg)
     logger.info("Valid Accuracy: %2.5f" % accuracy)
-
+    logger.info("Validation time: %.2f sec" % elapsed)
+    
+    writer.add_scalar("test/loss", scalar_value=accuracy, global_step=global_step)
     writer.add_scalar("test/accuracy", scalar_value=accuracy, global_step=global_step)
+    writer.add_scalar("test/validation_time", scalar_value=elapsed, global_step=global_step)
     return accuracy
 
 
@@ -190,6 +196,8 @@ def train(args, model):
                               bar_format="{l_bar}{r_bar}",
                               dynamic_ncols=True,
                               disable=args.local_rank not in [-1, 0])
+        initial_time = time.time()
+        
         for step, batch in enumerate(epoch_iterator):
             batch = tuple(t.to(args.device) for t in batch)
             x, y = batch
@@ -229,6 +237,11 @@ def train(args, model):
 
                 if global_step % t_total == 0:
                     break
+            
+        elapsed = time.time() - initial_time
+        logger.info("Epoch time: %.2f sec" % elapsed)
+        writer.add_scalar("train/epoch_time", scalar_value=elapsed, global_step=global_step)
+        
         losses.reset()
         if global_step % t_total == 0:
             break
@@ -244,10 +257,11 @@ def main():
     # Required parameters
     parser.add_argument("--name", required=True,
                         help="Name of this run. Used for monitoring.")
-    parser.add_argument("--dataset", choices=["cifar10", "cifar100"], default="cifar10",
+    parser.add_argument("--dataset", choices=["cifar10", "cifar100", "imagenet"], default="cifar10",
                         help="Which downstream task.")
-    parser.add_argument("--model_type", choices=["ViT-B_16", "ViT-B_32", "ViT-L_16",
-                                                 "ViT-L_32", "ViT-H_14", "R50-ViT-B_16"],
+    parser.add_argument("--data_root",
+                        help="The directory of ImageNet dataset")
+    parser.add_argument("--model_type", choices=["ViT-B_16_all", "ViT-B_16_mla", "ViT-B_16_gshard", "ViT-B_16_moe", "ViT-B_16", "ViT-B_16_moe_mla"],
                         default="ViT-B_16",
                         help="Which variant to use.")
     parser.add_argument("--pretrained_dir", type=str, default="checkpoint/ViT-B_16.npz",
