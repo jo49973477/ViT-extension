@@ -95,6 +95,7 @@ class Embeddings(nn.Module):
         x = x.transpose(-1, -2)
         x = torch.cat((cls_tokens, x), dim=1)
 
+        
         embeddings = x + self.position_embeddings
         embeddings = self.dropout(embeddings)
         return embeddings
