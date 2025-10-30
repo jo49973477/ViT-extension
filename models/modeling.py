@@ -117,7 +117,7 @@ class Block(nn.Module):
         else:
             self.ffn = OriginalMLP(config)
         
-        self.attn = Attention(config, vis) if not config.use_latent_attention else MultiHeadLatentAttentionViT(config, vis)
+        self.attn = Attention(config, vis) if not config.use_mla_attention else MultiHeadLatentAttentionViT(config, vis)
 
     def forward(self, x):
         h = x
