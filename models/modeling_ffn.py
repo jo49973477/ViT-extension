@@ -176,7 +176,7 @@ class MoE(nn.Module):
         self.n_routed_experts = config.n_routed_experts
         self.n_local_experts = config.n_routed_experts
         self.n_activated_experts = config.topk_experts
-        self.experts_start_idx = 1 * self.n_local_experts
+        self.experts_start_idx = 0
         self.experts_end_idx = self.experts_start_idx + self.n_local_experts
         self.gate = Gate(config)
         self.experts = nn.ModuleList([Expert(config.hidden_size, config.moe_inter_dim) if self.experts_start_idx <= i < self.experts_end_idx else None
