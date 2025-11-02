@@ -237,7 +237,7 @@ def train(args, model):
             batch = tuple(t.to(args.device) for t in batch)
             x, y = batch
             
-            with autocast(enabled=args.fp16):
+            with autocast(device_type=args.device.type, enabled=args.fp16):
                 loss = model(x, y)
 
             if args.gradient_accumulation_steps > 1:
