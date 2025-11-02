@@ -51,7 +51,7 @@ def simple_accuracy(preds, labels):
 
 def save_model(args, model):
     model_to_save = model.module if hasattr(model, 'module') else model
-    model_checkpoint = os.path.join(args.output_dir, "%s_checkpoint.bin" % args.name)
+    model_checkpoint = os.path.join(args.output_dir, "%s_checkpoint.pth" % args.name)
     torch.save(model_to_save.state_dict(), model_checkpoint)
     logger.info("Saved model checkpoint to [DIR: %s]", args.output_dir)
 
@@ -59,15 +59,43 @@ def save_model(args, model):
 def setup(args):
     # Prepare model
     config = CONFIGS[args.model_type]
-
-    num_classes = 10 if args.dataset == "cifar10" else 100
+    
+    if args.dataset == "cifar10":
+        num_classes = 10
+    elif args.dataset == "cifar100":
+        num_classes = 100
+    elif args.dataset in ["imagenet", "imagenet1k"]:
+        num_classes = 1000
+    elif args.dataset in ["imagenet21k", "imagenet22k"]:
+        num_classes = 21841
+    else:
+        raise ValueError(f"Unknown dataset: {args.dataset}")
 
     model = VisionTransformer(config, args.img_size, zero_head=True, num_classes=num_classes)
-    model.load_from(np.load(args.pretrained_dir))
+
+    pretrained_path = args.pretrained_dir
+    try:
+        if pretrained_path.endswith(('.pth', '.pt')):
+            state_dict = torch.load(pretrained_path, map_location='cpu')
+        else:
+            state_dict = np.load(pretrained_path, allow_pickle=True).item()
+
+        # state_dict 로드 (키 일부 불일치 무시)
+        missing, unexpected = model.load_state_dict(state_dict, strict=False)
+        if missing:
+            print(f"[Warning] Missing keys when loading pretrained weights: {len(missing)}")
+        if unexpected:
+            print(f"[Warning] Unexpected keys in pretrained weights: {len(unexpected)}")
+
+        print(f"Loaded pretrained weights from {pretrained_path}")
+    except Exception as e:
+        print(f"[Warning] Could not load pretrained weights: {e}")
+    # ----------------------
+
     model.to(args.device)
     num_params = count_parameters(model)
 
-    logger.info("{}".format(config))
+    logger.info("%s", config)
     logger.info("Training parameters %s", args)
     logger.info("Total Parameter: \t%2.1fM" % num_params)
     print(num_params)
@@ -280,7 +308,7 @@ def main():
                         help="Name of this run. Used for monitoring.")
     parser.add_argument("--dataset", choices=["cifar10", "cifar100", "imagenet"], default="cifar10",
                         help="Which downstream task.")
-    parser.add_argument("--data_root",
+    parser.add_argument("--data_root", tpye=str,
                         help="The directory of ImageNet dataset")
     parser.add_argument("--model_type", choices=["ViT-B_16_all", "ViT-B_16_mla", "ViT-B_16_gshard", "ViT-B_16_moe", "ViT-B_16", "ViT-B_16_moe_mla"],
                         default="ViT-B_16",
