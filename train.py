@@ -308,7 +308,7 @@ def main():
                         help="Name of this run. Used for monitoring.")
     parser.add_argument("--dataset", choices=["cifar10", "cifar100", "imagenet"], default="cifar10",
                         help="Which downstream task.")
-    parser.add_argument("--data_root", tpye=str,
+    parser.add_argument("--data_root", type=str,
                         help="The directory of ImageNet dataset")
     parser.add_argument("--model_type", choices=["ViT-B_16_all", "ViT-B_16_mla", "ViT-B_16_gshard", "ViT-B_16_moe", "ViT-B_16", "ViT-B_16_moe_mla"],
                         default="ViT-B_16",
