@@ -12,11 +12,11 @@ from datetime import timedelta
 
 import torch
 import torch.distributed as dist
+from torch.amp import autocast, GradScaler
+from torch.nn.parallel import DistributedDataParallel as DDP
 
 from tqdm import tqdm
 from torch.utils.tensorboard import SummaryWriter
-from apex import amp
-from apex.parallel import DistributedDataParallel as DDP
 
 from models.modeling import VisionTransformer, CONFIGS
 from utils.scheduler import WarmupLinearSchedule, WarmupCosineSchedule
@@ -96,6 +96,9 @@ def valid(args, model, writer, test_loader, global_step):
     logger.info("  Batch size = %d", args.eval_batch_size)
 
     initial_time = time.time()
+    torch.cuda.empty_cache()
+    torch.cuda.reset_peak_memory_stats(args.device)
+    
     model.eval()
     all_preds, all_label = [], []
     epoch_iterator = tqdm(test_loader,
@@ -125,11 +128,14 @@ def valid(args, model, writer, test_loader, global_step):
             all_label[0] = np.append(
                 all_label[0], y.detach().cpu().numpy(), axis=0
             )
+            
         epoch_iterator.set_description("Validating... (loss=%2.5f)" % eval_losses.val)
 
     all_preds, all_label = all_preds[0], all_label[0]
     accuracy = simple_accuracy(all_preds, all_label)
     elapsed = time.time() - initial_time
+    peak_memory_bytes = torch.cuda.max_memory_allocated(args.device)
+    peak_memory_mb = peak_memory_bytes / 1024**2 # 바이트(B)를 메가바이트(MB)로 변환
 
     logger.info("\n")
     logger.info("Validation Results")
@@ -137,10 +143,12 @@ def valid(args, model, writer, test_loader, global_step):
     logger.info("Valid Loss: %2.5f" % eval_losses.avg)
     logger.info("Valid Accuracy: %2.5f" % accuracy)
     logger.info("Validation time: %.2f sec" % elapsed)
+    logger.info("Peak memory usage: %.2f MB" % peak_memory_mb)
     
-    writer.add_scalar("test/loss", scalar_value=accuracy, global_step=global_step)
+    writer.add_scalar("test/loss", scalar_value=eval_losses.avg, global_step=global_step)
     writer.add_scalar("test/accuracy", scalar_value=accuracy, global_step=global_step)
     writer.add_scalar("test/validation_time", scalar_value=elapsed, global_step=global_step)
+    writer.add_scalar("test/peak_memory_MB", scalar_value=peak_memory_mb, global_step=global_step)
     return accuracy
 
 
@@ -151,6 +159,7 @@ def train(args, model):
         writer = SummaryWriter(log_dir=os.path.join("logs", args.name))
 
     args.train_batch_size = args.train_batch_size // args.gradient_accumulation_steps
+
 
     # Prepare dataset
     train_loader, test_loader = get_loader(args)
@@ -166,15 +175,11 @@ def train(args, model):
     else:
         scheduler = WarmupLinearSchedule(optimizer, warmup_steps=args.warmup_steps, t_total=t_total)
 
-    if args.fp16:
-        model, optimizer = amp.initialize(models=model,
-                                          optimizers=optimizer,
-                                          opt_level=args.fp16_opt_level)
-        amp._amp_state.loss_scalers[0]._loss_scale = 2**20
-
+    scaler = GradScaler(enabled=args.fp16)
+    
     # Distributed training
     if args.local_rank != -1:
-        model = DDP(model, message_size=250000000, gradient_predivide_factor=get_world_size())
+        model = DDP(model)
 
     # Train!
     logger.info("***** Running training *****")
@@ -197,28 +202,38 @@ def train(args, model):
                               dynamic_ncols=True,
                               disable=args.local_rank not in [-1, 0])
         initial_time = time.time()
+        torch.cuda.empty_cache()
+        torch.cuda.reset_peak_memory_stats(args.device)
         
         for step, batch in enumerate(epoch_iterator):
             batch = tuple(t.to(args.device) for t in batch)
             x, y = batch
-            loss = model(x, y)
+            
+            with autocast(enabled=args.fp16):
+                loss = model(x, y)
 
             if args.gradient_accumulation_steps > 1:
                 loss = loss / args.gradient_accumulation_steps
+            
             if args.fp16:
-                with amp.scale_loss(loss, optimizer) as scaled_loss:
-                    scaled_loss.backward()
+                scaler.scale(loss).backward()
             else:
                 loss.backward()
 
             if (step + 1) % args.gradient_accumulation_steps == 0:
                 losses.update(loss.item()*args.gradient_accumulation_steps)
+                
                 if args.fp16:
-                    torch.nn.utils.clip_grad_norm_(amp.master_params(optimizer), args.max_grad_norm)
+                    scaler.unscale_(optimizer) # 💖 (클리핑 전에 그래디언트 복원)
+                    torch.nn.utils.clip_grad_norm_(model.parameters(), args.max_grad_norm)
+                    scheduler.step()
+                    scaler.step(optimizer) # 💖 (scaler가 optimizer 실행)
+                    scaler.update()
                 else:
                     torch.nn.utils.clip_grad_norm_(model.parameters(), args.max_grad_norm)
-                scheduler.step()
-                optimizer.step()
+                    scheduler.step()
+                    optimizer.step()
+                
                 optimizer.zero_grad()
                 global_step += 1
 
@@ -241,6 +256,12 @@ def train(args, model):
         elapsed = time.time() - initial_time
         logger.info("Epoch time: %.2f sec" % elapsed)
         writer.add_scalar("train/epoch_time", scalar_value=elapsed, global_step=global_step)
+        
+        
+        peak_memory_bytes = torch.cuda.max_memory_allocated(args.device)
+        peak_memory_mb = peak_memory_bytes / 1024**2 # 바이트(B)를 메가바이트(MB)로 변환
+        logger.info("Peak memory usage: %.2f MB" % peak_memory_mb)
+        writer.add_scalar("train/peak_memory_MB", scalar_value=peak_memory_mb, global_step=global_step)
         
         losses.reset()
         if global_step % t_total == 0:
@@ -303,10 +324,7 @@ def main():
     parser.add_argument('--fp16_opt_level', type=str, default='O2',
                         help="For fp16: Apex AMP optimization level selected in ['O0', 'O1', 'O2', and 'O3']."
                              "See details at https://nvidia.github.io/apex/amp.html")
-    parser.add_argument('--loss_scale', type=float, default=0,
-                        help="Loss scaling to improve fp16 numeric stability. Only used when fp16 set to True.\n"
-                             "0 (default value): dynamic loss scaling.\n"
-                             "Positive power of 2: static loss scaling value.\n")
+    
     args = parser.parse_args()
 
     # Setup CUDA, GPU & distributed training
