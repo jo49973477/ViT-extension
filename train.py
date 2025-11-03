@@ -7,6 +7,7 @@ import os
 import random
 import numpy as np
 import time
+import sys
 
 from datetime import timedelta
 
@@ -133,7 +134,8 @@ def valid(args, model, writer, test_loader, global_step):
                           desc="Validating... (loss=X.X)",
                           bar_format="{l_bar}{r_bar}",
                           dynamic_ncols=True,
-                          disable=args.local_rank not in [-1, 0])
+                          disable=args.local_rank not in [-1, 0],
+                          file=sys.stdout)
     loss_fct = torch.nn.CrossEntropyLoss()
     for step, batch in enumerate(epoch_iterator):
         batch = tuple(t.to(args.device) for t in batch)
@@ -228,7 +230,8 @@ def train(args, model):
                               desc="Training (X / X Steps) (loss=X.X)",
                               bar_format="{l_bar}{r_bar}",
                               dynamic_ncols=True,
-                              disable=args.local_rank not in [-1, 0])
+                              disable=args.local_rank not in [-1, 0],
+                              file=sys.stdout)
         initial_time = time.time()
         torch.cuda.empty_cache()
         torch.cuda.reset_peak_memory_stats(args.device)
