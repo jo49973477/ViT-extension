@@ -6,6 +6,7 @@ import argparse
 import os
 import random
 import numpy as np
+import sys
 
 from datetime import timedelta
 
@@ -100,7 +101,8 @@ def valid(args, model, writer, test_loader, global_step):
                           desc="Validating... (loss=X.X)",
                           bar_format="{l_bar}{r_bar}",
                           dynamic_ncols=True,
-                          disable=args.local_rank not in [-1, 0])
+                          disable=args.local_rank not in [-1, 0],
+                          file=sys.stdout)
     loss_fct = torch.nn.CrossEntropyLoss()
     for step, batch in enumerate(epoch_iterator):
         batch = tuple(t.to(args.device) for t in batch)
@@ -153,7 +155,8 @@ def train(args, model):
     optimizer = torch.optim.SGD(model.parameters(),
                                 lr=args.learning_rate,
                                 momentum=0.9,
-                                weight_decay=args.weight_decay)
+                                weight_decay=args.weight_decay,
+                                file=sys.stdout)
     t_total = args.num_steps
     if args.decay_type == "cosine":
         scheduler = WarmupCosineSchedule(optimizer, warmup_steps=args.warmup_steps, t_total=t_total)
