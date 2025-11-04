@@ -144,3 +144,6 @@ cython_debug/
 !/logs/
 !/output/
 .idea
+
+# saved pth files
+runs
