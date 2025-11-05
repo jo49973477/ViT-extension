@@ -85,7 +85,7 @@ class Gate(nn.Module):
         """
         super().__init__()
         
-        self.linear = nn.LazyLinear(config.n_routed_experts)
+        self.linear = nn.Linear(config.hidden_size, config.n_routed_experts)
         self.dim = config.hidden_size
         self.topk = config.topk_experts
         self.score_func = config.score_func
