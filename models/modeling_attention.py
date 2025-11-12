@@ -121,7 +121,6 @@ class RMSNorm(nn.Module):
 class MultiHeadLatentAttentionViT(nn.Module):
     """
     Multi-Head Latent Attention (MLA) Layer.
-    (ViT-compatible version by Mamang 💖)
     
     - No KV Caching (ViT processes all tokens at once)
     - No RoPE (Assumes ViT's Absolute Position Embeddings (APE) are already added to 'x')
