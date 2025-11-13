@@ -6,6 +6,7 @@ import torch
 from torchvision import transforms, datasets
 from torch.utils.data import DataLoader, RandomSampler, DistributedSampler, SequentialSampler
 from torchvision.datasets import ImageFolder
+from utils.imagevalnet import ValidationImageNet
 
 
 logger = logging.getLogger(__name__)
@@ -41,7 +42,7 @@ def get_loader(args):
                                         transform=transform_train)
         
         # 테스트 데이터셋 (Validation Set)
-        testset = datasets.ImageFolder(root=os.path.join(args.data_root, "val"), 
+        testset = ValidationImageNet(root=os.path.join(args.data_root, "val"), 
                                         transform=transform_test)
     elif args.dataset == "cifar100":
         trainset = datasets.CIFAR100(root="./data",
@@ -72,3 +73,6 @@ def get_loader(args):
                              pin_memory=True) if testset is not None else None
 
     return train_loader, test_loader
+
+if __name__ == "__main__":
+    print()
