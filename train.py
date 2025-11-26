@@ -312,7 +312,7 @@ def main():
                         help="Which downstream task.")
     parser.add_argument("--data_root", type=str,
                         help="The directory of ImageNet dataset")
-    parser.add_argument("--model_type", choices=["ViT-B_16_all", "ViT-B_16_mla", "ViT-B_16_gshard", "ViT-B_16_moe", "ViT-B_16", "ViT-B_16_moe_mla"],
+    parser.add_argument("--model_type", choices= list(CONFIGS.keys()),
                         default="ViT-B_16",
                         help="Which variant to use.")
     parser.add_argument("--pretrained_dir", type=str, default="checkpoint/ViT-B_16.npz",

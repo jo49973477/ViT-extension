@@ -20,7 +20,7 @@ from scipy import ndimage
 import models.configs as configs
 
 from .modeling_resnet import ResNetV2
-from .modeling_attention import Attention, MultiHeadLatentAttentionViT
+from .modeling_attention import Attention, MultiHeadLatentAttentionViT, MultiHeadLatentAttentionViTWithROPE
 from .modeling_ffn_gshard import GShardMoE
 from .modeling_ffn import OriginalMLP, MoE
 
@@ -84,6 +84,8 @@ class Embeddings(nn.Module):
 
         self.dropout = Dropout(config.transformer["dropout_rate"])
 
+        self.activate_rope = config.activate_rope
+
     def forward(self, x):
         B = x.shape[0]
         cls_tokens = self.cls_token.expand(B, -1, -1)
@@ -96,7 +98,9 @@ class Embeddings(nn.Module):
         x = torch.cat((cls_tokens, x), dim=1)
 
         
-        embeddings = x + self.position_embeddings
+        embeddings = x
+        if not self.activate_rope:
+            embeddings += self.position_embeddings
         embeddings = self.dropout(embeddings)
         return embeddings
 
@@ -118,7 +122,13 @@ class Block(nn.Module):
         else:
             self.ffn = OriginalMLP(config)
         
-        self.attn = Attention(config, vis) if not config.use_mla_attention else MultiHeadLatentAttentionViT(config, vis)
+        self.attn = Attention(config, vis) 
+
+        if config.use_mla_attention:
+            if config.activate_rope:
+                self.attn = MultiHeadLatentAttentionViTWithROPE(config)
+            else:
+                self.attn = MultiHeadLatentAttentionViT(config, vis)
 
     def forward(self, x):
         h = x
@@ -188,10 +198,12 @@ class VisionTransformer(nn.Module):
 
 
 CONFIGS = {
-    'ViT-B_16_all': configs.get_b16_config_tuning(moe=True, gshard=True, mla=True),
-    'ViT-B_16_mla': configs.get_b16_config_tuning(moe=False, gshard=False, mla=True),
-    'ViT-B_16_gshard': configs.get_b16_config_tuning(moe=True, gshard=True, mla=False),
-    'ViT-B_16_moe': configs.get_b16_config_tuning(moe=True, gshard=False, mla=False),
-    'ViT-B_16_moe_mla': configs.get_b16_config_tuning(moe=True, gshard=False, mla=True),
-    'ViT-B_16': configs.get_b16_config_tuning(moe=False, gshard=False, mla=False),
+    'ViT-B_16_all': configs.get_b16_config_tuning(moe=True, gshard=True, mla=True, rope=False),
+    'ViT-B_16_mla': configs.get_b16_config_tuning(moe=False, gshard=False, mla=True, rope=False),
+    'ViT-B_16_gshard': configs.get_b16_config_tuning(moe=True, gshard=True, mla=False, rope=False),
+    'ViT-B_16_moe': configs.get_b16_config_tuning(moe=True, gshard=False, mla=False, rope=False),
+    'ViT-B_16_moe_mla': configs.get_b16_config_tuning(moe=True, gshard=False, mla=True, rope=False),
+    'ViT-B_16': configs.get_b16_config_tuning(moe=False, gshard=False, mla=False, rope=False),
+    'ViT-B_16_moe_mla_rope': configs.get_b16_config_tuning(moe=True, gshard=False, mla=True, rope=True),
+    'ViT-B_16_mla_rope': configs.get_b16_config_tuning(moe=False, gshard=False, mla=True, rope=True),
 }

@@ -15,7 +15,6 @@ from scipy import ndimage
 
 from models.modeling_ffn import SwiGLU
 
-# 💖 'Expert' 클래스를 묶어서 처리할 'BatchedSwiGLUExperts'
 class BatchedSwiGLUExperts(nn.Module):
     """ GShard-style: N개의 SwiGLU 전문가를 한 번에 계산 """
     def __init__(self, config):

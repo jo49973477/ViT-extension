@@ -47,7 +47,7 @@ def get_b16_config():
     return config
 
 
-def get_b16_config_tuning(moe, gshard, mla):
+def get_b16_config_tuning(moe, gshard, mla, rope):
     """Returns the ViT-B/16 configuration."""
     config = ml_collections.ConfigDict()
     config.patches = ml_collections.ConfigDict({'size': (16, 16)})
@@ -59,8 +59,13 @@ def get_b16_config_tuning(moe, gshard, mla):
     config.transformer.attention_dropout_rate = 0.0
     config.transformer.dropout_rate = 0.1
     
-    config.transformer.kr_lora_rank = 128
-    
+    config.transformer.kv_lora_rank = 128
+
+    config.qk_nope_head_dim = 128
+    config.qk_rope_head_dim = 128
+    config.v_head_dim = 128
+    config.q_lora_rank = 0
+
     
     config.topk_experts = 2
     config.n_routed_experts = 8
@@ -75,6 +80,7 @@ def get_b16_config_tuning(moe, gshard, mla):
     config.use_gshard_moe = gshard
     config.use_mla_attention = mla
     config.use_moe_in_ffn = moe
+    config.activate_rope = rope
     
     config.classifier = 'token'
     config.representation_size = None

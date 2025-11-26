@@ -222,3 +222,118 @@ class MultiHeadLatentAttentionViT(nn.Module):
         
         output = self.wo(output) # (B, S, dim)
         return output, scores
+
+
+class MultiHeadLatentAttentionViTWithROPE(nn.Module):
+    """
+    Multi-Head Latent Attention (MLA) Layer.
+
+    Attributes:
+        dim (int): Dimensionality of the input features.
+        n_heads (int): Number of attention heads.
+        n_local_heads (int): Number of local attention heads for distributed systems.
+        q_lora_rank (int): Rank for low-rank query projection.
+        kv_lora_rank (int): Rank for low-rank key/value projection.
+        qk_nope_head_dim (int): Dimensionality of non-positional query/key projections.
+        qk_rope_head_dim (int): Dimensionality of rotary-positional query/key projections.
+        qk_head_dim (int): Total dimensionality of query/key projections.
+        v_head_dim (int): Dimensionality of value projections.
+        softmax_scale (float): Scaling factor for softmax in attention computation.
+    """
+    def __init__(self, config, naive = False):
+        super().__init__()
+        self.dim = config.hidden_size
+        self.n_heads = config.transformer["num_heads"]
+        self.q_lora_rank = config.q_lora_rank
+        self.kv_lora_rank = config.transformer.get("kv_lora_rank", 128) 
+        self.qk_nope_head_dim = config.qk_nope_head_dim
+        self.qk_rope_head_dim = config.qk_rope_head_dim
+        self.qk_head_dim = config.qk_nope_head_dim + config.qk_rope_head_dim
+        self.v_head_dim = config.v_head_dim
+
+        length = config.patches.size[0]
+        self.max_seq_len = (config.max_img_size // length) ** 2 + 1
+        self.naive = naive
+
+        if self.q_lora_rank == 0:
+            self.wq = nn.Linear(self.dim, self.n_heads * self.qk_head_dim)
+        else:
+            self.wq_a = Linear(self.dim, self.q_lora_rank)
+            self.q_norm = RMSNorm(self.q_lora_rank)
+            self.wq_b = nn.Linear(self.q_lora_rank, self.n_heads * self.qk_head_dim)
+        self.wkv_a = Linear(self.dim, self.kv_lora_rank + self.qk_rope_head_dim)
+        self.kv_norm = RMSNorm(self.kv_lora_rank)
+        self.wkv_b = nn.Linear(self.kv_lora_rank, self.n_heads * (self.qk_nope_head_dim + self.v_head_dim))
+        self.wo = nn.Linear(self.n_heads * self.v_head_dim, self.dim)
+        self.softmax_scale = self.qk_head_dim ** -0.5
+
+        if self.naive:
+            self.register_buffer("k_cache", 
+                                 torch.zeros(64, self.max_seq_len, self.n_heads, self.qk_head_dim), 
+                                 persistent=False)
+            self.register_buffer("v_cache", 
+                                 torch.zeros(64, self.max_seq_len, self.n_heads, self.v_head_dim), 
+                                 persistent=False)
+        else:
+            self.register_buffer("kv_cache", 
+                                 torch.zeros(64, self.max_seq_len, self.kv_lora_rank), 
+                                 persistent=False)
+            self.register_buffer("pe_cache", 
+                                 torch.zeros(64, self.max_seq_len, self.qk_rope_head_dim), 
+                                 persistent=False)
+
+    def forward(self, x: torch.Tensor, freqs_cis: torch.Tensor):
+        """
+        Forward pass for the Multi-Head Latent Attention (MLA) Layer.
+
+        Args:
+            x (torch.Tensor): Input tensor of shape (batch_size, seq_len, dim).
+            start_pos (int): Starting position in the sequence for caching.
+            freqs_cis (torch.Tensor): Precomputed complex exponential values for rotary embeddings.
+            mask (Optional[torch.Tensor]): Mask tensor to exclude certain positions from attention.
+
+        Returns:
+            torch.Tensor: Output tensor with the same shape as the input.
+        """
+        bsz, seqlen, _ = x.size()
+
+        if self.q_lora_rank == 0:
+            q = self.wq(x)
+        else:
+            q = self.wq_b(self.q_norm(self.wq_a(x)))
+        q = q.view(bsz, seqlen, self.n_heads, self.qk_head_dim)
+        q_nope, q_pe = torch.split(q, [self.qk_nope_head_dim, self.qk_rope_head_dim], dim=-1)
+        q_pe = apply_rotary_emb(q_pe, freqs_cis)
+
+        kv = self.wkv_a(x)
+        kv, k_pe = torch.split(kv, [self.kv_lora_rank, self.qk_rope_head_dim], dim=-1)
+        k_pe = apply_rotary_emb(k_pe.unsqueeze(2), freqs_cis)
+
+        if self.naive:
+            q = torch.cat([q_nope, q_pe], dim=-1)
+            kv = self.wkv_b(self.kv_norm(kv))
+            kv = kv.view(bsz, seqlen, self.n_heads, self.qk_nope_head_dim + self.v_head_dim)
+            k_nope, v = torch.split(kv, [self.qk_nope_head_dim, self.v_head_dim], dim=-1)
+            k = torch.cat([k_nope, k_pe.expand(-1, -1, self.n_heads, -1)], dim=-1)
+
+            scores = torch.einsum("bshd,bthd->bsht", q, k) * self.softmax_scale
+
+        else:
+            wkv_b = self.wkv_b.weight
+            wkv_b = wkv_b.view(self.n_heads, -1, self.kv_lora_rank)
+            q_nope = torch.einsum("bshd,hdc->bshc", q_nope, wkv_b[:, :self.qk_nope_head_dim])
+            kv_normed = self.kv_norm(kv)
+            k_pe_squeezed = k_pe.squeeze(2)
+            scores = (torch.einsum("bshc,btc->bsht", q_nope, kv_normed) +
+                      torch.einsum("bshr,btr->bsht", q_pe, k_pe_squeezed)) * self.softmax_scale
+            
+        scores = scores.softmax(dim=-1, dtype=torch.float32).type_as(x)
+
+        if self.naive:
+            x = torch.einsum("bsht,bthd->bshd", scores, v)
+        else:
+            x = torch.einsum("bsht,btc->bshc", scores, kv_normed)
+            x = torch.einsum("bshc,hdc->bshd", x, wkv_b[:, -self.v_head_dim:])
+        x = self.wo(x.flatten(2))
+
+        return x
