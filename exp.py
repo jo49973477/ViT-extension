@@ -5,13 +5,16 @@ from models.modeling import VisionTransformer
 from models.configs import get_b16_config_tuning
 
 CONFIGS = {
-    'ViT-B_16_all': get_b16_config_tuning(moe=True, gshard=True, mla=True),
-    'ViT-B_16_mla': get_b16_config_tuning(moe=False, gshard=False, mla=True),
-    'ViT-B_16_gshard': get_b16_config_tuning(moe=True, gshard=True, mla=False),
-    'ViT-B_16_moe': get_b16_config_tuning(moe=True, gshard=False, mla=False),
-    'ViT-B_16_moe_mla': get_b16_config_tuning(moe=True, gshard=False, mla=True),
-    'ViT-B_16': get_b16_config_tuning(moe=False, gshard=False, mla=False),
+    'ViT-B_16_all': get_b16_config_tuning(moe=True, gshard=True, mla=True, rope=False),
+    'ViT-B_16_mla': get_b16_config_tuning(moe=False, gshard=False, mla=True, rope=False),
+    'ViT-B_16_gshard': get_b16_config_tuning(moe=True, gshard=True, mla=False, rope=False),
+    'ViT-B_16_moe': get_b16_config_tuning(moe=True, gshard=False, mla=False, rope=False),
+    'ViT-B_16_moe_mla': get_b16_config_tuning(moe=True, gshard=False, mla=True, rope=False),
+    'ViT-B_16': get_b16_config_tuning(moe=False, gshard=False, mla=False, rope=False),
+    'ViT-B_16_moe_mla_rope': get_b16_config_tuning(moe=True, gshard=False, mla=True, rope=True),
+    'ViT-B_16_mla_rope': get_b16_config_tuning(moe=False, gshard=False, mla=True, rope=True),
 }
+
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
