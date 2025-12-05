@@ -302,7 +302,7 @@ class MultiHeadLatentAttentionViTWithROPE(nn.Module):
         return freqs_cis
     
 
-    def forward(self, x: torch.Tensor, freqs_cis: torch.Tensor):
+    def forward(self, x: torch.Tensor):
         """
         Forward pass for the Multi-Head Latent Attention (MLA) Layer.
 
