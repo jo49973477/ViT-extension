@@ -358,4 +358,4 @@ class MultiHeadLatentAttentionViTWithROPE(nn.Module):
             x = torch.einsum("bshc,hdc->bshd", x, wkv_b[:, -self.v_head_dim:])
         x = self.wo(x.flatten(2))
 
-        return x
+        return x, scores
