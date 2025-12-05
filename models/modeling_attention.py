@@ -281,6 +281,26 @@ class MultiHeadLatentAttentionViTWithROPE(nn.Module):
             self.register_buffer("pe_cache", 
                                  torch.zeros(64, self.max_seq_len, self.qk_rope_head_dim), 
                                  persistent=False)
+            
+    def precompute_freqs_cis(self) -> torch.Tensor:
+        """
+        ViT를 위한 고정 길이 RoPE 주파수 사전 계산 함수.
+        복잡한 스케일링 로직을 제거하고 표준 RoPE만 남김.
+        """
+        dim = self.qk_rope_head_dim
+        seqlen = self.max_seq_len # ViT는 이미지 크기에 따라 이게 고정됨
+        base = 10000.0            # 보통 10000.0을 쓰지만, 설정에 따라 바뀔 수 있음
+
+        freqs = 1.0 / (base ** (torch.arange(0, dim, 2, dtype=torch.float32) / dim))
+
+        t = torch.arange(seqlen, dtype=torch.float32)
+
+        freqs = torch.outer(t, freqs)
+
+        freqs_cis = torch.polar(torch.ones_like(freqs), freqs)
+
+        return freqs_cis
+    
 
     def forward(self, x: torch.Tensor, freqs_cis: torch.Tensor):
         """
@@ -295,6 +315,8 @@ class MultiHeadLatentAttentionViTWithROPE(nn.Module):
         Returns:
             torch.Tensor: Output tensor with the same shape as the input.
         """
+        freqs_cls = self.precompute_freqs_cis()
+
         bsz, seqlen, _ = x.size()
 
         if self.q_lora_rank == 0:
