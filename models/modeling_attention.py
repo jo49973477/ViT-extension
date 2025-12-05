@@ -315,7 +315,7 @@ class MultiHeadLatentAttentionViTWithROPE(nn.Module):
         Returns:
             torch.Tensor: Output tensor with the same shape as the input.
         """
-        freqs_cls = self.precompute_freqs_cis()
+        freqs_cis = self.precompute_freqs_cis()
 
         bsz, seqlen, _ = x.size()
 
