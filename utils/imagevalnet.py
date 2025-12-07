@@ -10,7 +10,7 @@ class ValidationImageNet(Dataset):
         self.transform = transform
 
         self.img_directories = [os.path.join(root, "ILSVRC2011_val_{:08d}.JPEG".format(i)) for i in range(1, 50001)]
-        val_directory = os.path.join(root, "ILSVRC2012_validation_ground_truth.txt")
+        val_directory = os.path.join(root, "ILSVRC2011_validation_ground_truth.txt")
 
         with open(val_directory, 'r') as f:
             self.labels = [int(line.strip()) for line in f]
