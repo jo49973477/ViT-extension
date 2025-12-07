@@ -19,7 +19,7 @@ class ValidationImageNet(Dataset):
         return len(self.labels)
 
     def __getitem__(self, idx):
-        image = Image.open(self.img_directories[idx])
+        image = Image.open(self.img_directories[idx]).convert('RGB')
         image = self.transform(image)
         
         return image, self.labels[idx]
