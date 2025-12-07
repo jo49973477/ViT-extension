@@ -13,7 +13,7 @@ class ValidationImageNet(Dataset):
         val_directory = os.path.join(root, "ILSVRC2011_validation_ground_truth.txt")
 
         with open(val_directory, 'r') as f:
-            self.labels = [int(line.strip()) for line in f]
+            self.labels = [int(line.strip())-1 for line in f]
 
     def __len__(self):
         return len(self.labels)
