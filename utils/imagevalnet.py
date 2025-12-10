@@ -2,7 +2,8 @@ import logging
 import os
 import torch
 from torch.utils.data import DataLoader, Dataset
-from PIL import Image
+from PIL import Image, ImageFile
+ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 class ValidationImageNet(Dataset):
     def __init__(self, root, transform):
