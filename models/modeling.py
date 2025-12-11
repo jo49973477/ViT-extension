@@ -198,12 +198,12 @@ class VisionTransformer(nn.Module):
 
 
 CONFIGS = {
-    'ViT-B_16_all': configs.get_b16_config_tuning(moe=True, gshard=True, mla=True, rope=False),
-    'ViT-B_16_mla': configs.get_b16_config_tuning(moe=False, gshard=False, mla=True, rope=False),
-    'ViT-B_16_gshard': configs.get_b16_config_tuning(moe=True, gshard=True, mla=False, rope=False),
-    'ViT-B_16_moe': configs.get_b16_config_tuning(moe=True, gshard=False, mla=False, rope=False),
-    'ViT-B_16_moe_mla': configs.get_b16_config_tuning(moe=True, gshard=False, mla=True, rope=False),
-    'ViT-B_16': configs.get_b16_config_tuning(moe=False, gshard=False, mla=False, rope=False),
-    'ViT-B_16_moe_mla_rope': configs.get_b16_config_tuning(moe=True, gshard=False, mla=True, rope=True),
-    'ViT-B_16_mla_rope': configs.get_b16_config_tuning(moe=False, gshard=False, mla=True, rope=True),
+    'ViT-S_4_all': configs.get_s4_config_tuning(moe=True, gshard=True, mla=True, rope=False),
+    'ViT-S_4_mla': configs.get_s4_config_tuning(moe=False, gshard=False, mla=True, rope=False),
+    'ViT-S_4_gshard': configs.get_s4_config_tuning(moe=True, gshard=True, mla=False, rope=False),
+    'ViT-S_4_moe': configs.get_s4_config_tuning(moe=True, gshard=False, mla=False, rope=False),
+    'ViT-S_4_moe_mla': configs.get_s4_config_tuning(moe=True, gshard=False, mla=True, rope=False),
+    'ViT-S_4': configs.get_s4_config_tuning(moe=False, gshard=False, mla=False, rope=False),
+    'ViT-S_4_moe_mla_rope': configs.get_s4_config_tuning(moe=True, gshard=False, mla=True, rope=True),
+    'ViT-S_4_mla_rope': configs.get_s4_config_tuning(moe=False, gshard=False, mla=True, rope=True),
 }

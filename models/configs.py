@@ -47,35 +47,35 @@ def get_b16_config():
     return config
 
 
-def get_b16_config_tuning(moe, gshard, mla, rope):
+def get_s4_config_tuning(moe, gshard, mla, rope):
     """Returns the ViT-B/16 configuration."""
     config = ml_collections.ConfigDict()
-    config.patches = ml_collections.ConfigDict({'size': (16, 16)})
-    config.hidden_size = 768
+    config.patches = ml_collections.ConfigDict({'size': (4, 4)})
+    config.hidden_size = 384
     config.transformer = ml_collections.ConfigDict()
-    config.transformer.mlp_dim = 3072
-    config.transformer.num_heads = 12
+    config.transformer.mlp_dim = 1536
+    config.transformer.num_heads = 6
     config.transformer.num_layers = 12
     config.transformer.attention_dropout_rate = 0.0
     config.transformer.dropout_rate = 0.1
     
-    config.transformer.kv_lora_rank = 128
+    config.transformer.kv_lora_rank = 64
 
-    config.qk_nope_head_dim = 128
-    config.qk_rope_head_dim = 128
-    config.v_head_dim = 128
+    config.qk_nope_head_dim = 64
+    config.qk_rope_head_dim = 64
+    config.v_head_dim = 64
     config.q_lora_rank = 0
 
     
     config.topk_experts = 2
     config.n_routed_experts = 8
     config.n_shared_experts = 1
-    config.moe_inter_dim = 2048
+    config.moe_inter_dim = 1024
     config.score_func = "softmax"
     config.route_scale = 1.0
     
     config.max_batch_size = 512
-    config.max_img_size = 224
+    config.max_img_size = 32
     
     config.use_gshard_moe = gshard
     config.use_mla_attention = mla
